@@ -1,4 +1,31 @@
 { config, options, diskoLib, lib, rootMountPoint, parent, device, ... }:
+let
+  swapType = lib.types.submodule ({ config, ... }: {
+    options = {
+      enable = lib.mkEnableOption "swap";
+
+      size = lib.mkOption {
+        type = lib.types.nullOr (lib.types.strMatching "^([0-9]+[KMGTP])?$");
+        default = null;
+        description = "Size of the swap file (e.g. 2G)";
+      };
+
+      path = lib.mkOption {
+        type = lib.types.str;
+        default = "swapfile";
+        description = "Path to the swap file (relative to the mountpoint)";
+      };
+    };
+  });
+
+  swapConfig = { mountpoint, swap }: lib.optional swap.enable {
+    swapDevices = [{
+      device =
+        assert lib.asserts.assertMsg (mountpoint != null) "swap requires mountpoint to be set";
+        lib.path.append mountpoint swap.path;
+    }];
+  };
+in
 {
   options = {
     type = lib.mkOption {
@@ -50,6 +77,11 @@
             default = null;
             description = "Location to mount the subvolume to.";
           };
+          swap = lib.mkOption {
+            type = swapType;
+            default = { };
+            description = "Swap file configuration";
+          };
         };
       }));
       default = { };
@@ -59,6 +91,11 @@
       type = lib.types.nullOr diskoLib.optionTypes.absolute-pathname;
       default = null;
       description = "A path to mount the BTRFS filesystem to.";
+    };
+    swap = lib.mkOption {
+      type = swapType;
+      default = { };
+      description = "Swap file configuration";
     };
     _parent = lib.mkOption {
       internal = true;
@@ -140,6 +177,14 @@
             fsType = "btrfs";
             options = config.mountOptions;
           };
+        })
+        (map
+          (subvol: swapConfig {
+            inherit (subvol) mountpoint swap;
+          })
+          (lib.attrValues config.subvolumes))
+        (swapConfig {
+          inherit (config) mountpoint swap;
         })
       ];
       description = "NixOS configuration";
