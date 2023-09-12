@@ -1,0 +1,28 @@
+name: CI
+on:
+  push:
+    branches:
+      - main
+      - feat/btrfs-swap
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    needs: []
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@v4
+
+      - name: Setup Nix cache
+        uses: DeterminateSystems/magic-nix-cache-action@v2
+
+      - name: Check Nix flake Nixpkgs inputs
+        uses: DeterminateSystems/flake-checker-action@main
+
+      - name: Show flake
+        run: nix flake show
+
+      - name: Check flake
+        run: nix flake check
